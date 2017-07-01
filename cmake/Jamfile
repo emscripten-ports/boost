@@ -392,8 +392,9 @@ for dir in $(library-dirs)
     local config-targets ;
 
     # boost_math, a dependency of lexical_cast, has six optional libraries, none of which named boost_math
+    # boost_exception has an optional MSVC-only library, which creates problems under Linux
 
-    if [ exists $(dir)/build ] && [ exists $(dir)/src ] && $(name) != "math"
+    if [ exists $(dir)/build ] && [ exists $(dir)/src ] && $(name) != "math" && $(name) != "exception"
     {
         .info Library $(name) is not header-only ;
 
