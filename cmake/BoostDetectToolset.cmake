@@ -1,0 +1,35 @@
+#
+# BoostDetectToolset: defines BOOST_DETECTED_TOOLSET
+#
+# Copyright 2017 Peter Dimov
+#
+# Distributed under the Boost Software License 1.0
+#
+
+set(BOOST_DETECTED_TOOLSET "")
+
+if(MSVC)
+  if(MSVC_VERSION EQUAL 1910)
+    set(BOOST_DETECTED_TOOLSET "vc141")
+  elseif(MSVC_VERSION EQUAL 1900)
+    set(BOOST_DETECTED_TOOLSET "vc140")
+  elseif(MSVC_VERSION EQUAL 1800)
+    set(BOOST_DETECTED_TOOLSET "vc120")
+  elseif(MSVC_VERSION EQUAL 1700)
+    set(BOOST_DETECTED_TOOLSET "vc110")
+  elseif(MSVC_VERSION EQUAL 1600)
+    set(BOOST_DETECTED_TOOLSET "vc100")
+  elseif(MSVC_VERSION EQUAL 1500)
+    set(BOOST_DETECTED_TOOLSET "vc90")
+  elseif(MSVC_VERSION EQUAL 1400)
+    set(BOOST_DETECTED_TOOLSET "vc80")
+  elseif(MSVC_VERSION EQUAL 1310)
+    set(BOOST_DETECTED_TOOLSET "vc71")
+  elseif(MSVC_VERSION EQUAL 1300)
+    set(BOOST_DETECTED_TOOLSET "vc7")
+  elseif(MSVC_VERSION EQUAL 1200)
+    set(BOOST_DETECTED_TOOLSET "vc6")
+  endif()
+elseif(MINGW)
+  set(BOOST_DETECTED_TOOLSET "mgw")
+endif()

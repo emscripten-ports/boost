@@ -17,6 +17,7 @@ import "class" : new ;
 import feature ;
 import toolset ;
 import regex ;
+import common ;
 
 if "--debug-cmake" in [ modules.peek : ARGV ]
 {
@@ -117,6 +118,9 @@ local rule generate-config ( target type )
         ")"
         ""
         "get_filename_component(_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)"
+        ""
+        "include(${_DIR}/../BoostDetectToolset-$(BOOST_VERSION).cmake)"
+        ""
         "file(GLOB CONFIG_FILES "${_DIR}/libboost_$(name)-config-variant*.cmake")"
         "foreach(f ${CONFIG_FILES})"
         "  include(${f})"
@@ -275,10 +279,22 @@ rule generate-config-variant- ( target : sources * : properties * )
 
     print.text "# runtime-debugging=$(runtime-debugging)" "" : true ;
 
-    local toolset = [ $(ps).get <toolset> ] ;
+    local toolset = [ MATCH ^-(.*) : [ common.format-name <toolset> : "" : "" : $(ps) ] ] ;
     .info generate-config-variant-: toolset is $(toolset) ;
 
     print.text "# toolset=$(toolset)" "" : true ;
+
+    print.text
+
+        "if(NOT \"${BOOST_TOOLSET}\" STREQUAL \"\")"
+        "  if(NOT \"${BOOST_TOOLSET}\" STREQUAL \"$(toolset)\")"
+        "    return()"
+        "  endif()"
+        "elseif(NOT \"${BOOST_DETECTED_TOOLSET}\" STREQUAL \"\" AND NOT \"${BOOST_DETECTED_TOOLSET}\" STREQUAL \"$(toolset)\")"
+        "  return()"
+        "endif()"
+        ""
+        : true ;
 
     local name = [ MATCH boost_(.*)-config-variant-.*cmake : $(target) ] ;
     .info generate-config-variant-: name is $(name) ;
@@ -445,12 +461,20 @@ for dir in $(library-dirs)
     explicit $(dir)-install ;
 }
 
+# BoostDetectToolset.cmake
+
+install BoostDetectToolset-stage : BoostDetectToolset.cmake : <name>BoostDetectToolset-$(BOOST_VERSION).cmake <location>$(BOOST_STAGE_LOCATE)/lib/cmake ;
+explicit BoostDetectToolset-stage ;
+
+install BoostDetectToolset-install : BoostDetectToolset.cmake : <name>BoostDetectToolset-$(BOOST_VERSION).cmake <location>$(libdir)/cmake ;
+explicit BoostDetectToolset-install ;
+
 # stage
 
-alias stage : $(library-dirs)-stage ;
+alias stage : BoostDetectToolset-stage $(library-dirs)-stage ;
 explicit stage ;
 
 # install
 
-alias install : $(library-dirs)-install ;
+alias install : BoostDetectToolset-install $(library-dirs)-install ;
 explicit install ;
