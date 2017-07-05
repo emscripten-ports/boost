@@ -397,18 +397,18 @@ actions boostdep-cmake
 
 # output-dir
 
-local project = [ project.current ] ;
+#local project = [ project.current ] ;
 
-local build-dir = [ path.root [ $(project).get build-dir ] [ path.pwd ] ] ;
-.info build-dir is $(build-dir) ;
+#local build-dir = [ path.root [ $(project).get build-dir ] [ path.pwd ] ] ;
+#.info build-dir is $(build-dir) ;
 
-path-constant HERE : . ;
-.info HERE is $(HERE) ;
+#path-constant HERE : . ;
+#.info HERE is $(HERE) ;
 
-local current-dir = [ path.make $(HERE) ] ;
-.info current-dir is $(current-dir) ;
+#local current-dir = [ path.make $(HERE) ] ;
+#.info current-dir is $(current-dir) ;
 
-local output-dir = [ path.relative-to $(current-dir) $(build-dir) ] ;
+output-dir = ../../bin.v2 ; # [ path.relative-to $(current-dir) $(build-dir) ] ;
 .info output-dir is $(output-dir) ;
 
 # create library config targets

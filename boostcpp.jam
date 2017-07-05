@@ -237,6 +237,7 @@ rule filtered-target ( name : message + : sources + : requirements * )
 rule declare_install_and_stage_proper_targets ( libraries * : headers * )
 {
     local p = [ project.current ] ;
+
     for local l in $(libraries)
     {
         if $(l) = locale
@@ -263,28 +264,40 @@ rule declare_install_and_stage_proper_targets ( libraries * : headers * )
             $(p).mark-target-as-explicit $(l)-for-install ;
         }
     }
+
     local library-targets = $(libraries)-for-install ;
 
-    install-requirements = <install-source-root>$(BOOST_ROOT)/boost ;
+    local install-requirements ;
+
+    local install-source-root = $(BOOST_ROOT)/boost ;
+
+    install-requirements += <install-source-root>$(install-source-root) ;
+
+    local install-header-subdir ;
 
     if $(layout-versioned)
     {
-        install-requirements +=
-            <install-header-subdir>boost-$(BOOST_VERSION_TAG)/boost ;
+        install-header-subdir = boost-$(BOOST_VERSION_TAG)/boost ;
     }
     else
     {
-        install-requirements += <install-header-subdir>boost ;
+        install-header-subdir = boost ;
     }
+
+    install-requirements += <install-header-subdir>$(install-header-subdir) ;
+
+    local install-default-prefix ;
 
     if [ os.name ] = NT
     {
-        install-requirements += <install-default-prefix>C:/Boost ;
+        install-default-prefix = C:/Boost ;
     }
     else
     {
-        install-requirements += <install-default-prefix>/usr/local ;
+        install-default-prefix = /usr/local ;
     }
+
+    install-requirements += <install-default-prefix>$(install-default-prefix) ;
 
     p = [ project.current ] ;
 
@@ -305,6 +318,51 @@ rule declare_install_and_stage_proper_targets ( libraries * : headers * )
           <install-no-version-symlinks>on
         ;
     $(p).mark-target-as-explicit stage-proper ;
+
+    # CMake targets
+
+    if [ path.exists $(BOOST_ROOT)/libs/cmake_config/Jamfile ]
+    {
+        alias boost_cmake_config : libs/cmake_config//boost_cmake_config ;
+        $(p).mark-target-as-explicit boost_cmake_config ;
+
+        local cmake-config-output-dir = bin.v2 ;
+
+        # prefix, libdir
+
+        local prefix ;
+        local libdir ;
+
+        # Duplicate package.install logic
+
+        if [ MATCH --prefix=(.*) : [ modules.peek : ARGV ] ]
+        {
+            # --prefix on the command line overrides --libdir
+            prefix = [ option.get prefix ] ;
+            libdir = $(prefix)/lib ;
+        }
+        else
+        {
+            prefix = $(install-default-prefix) ;
+            libdir = [ option.get libdir : $(prefix)/lib ] ;
+        }
+
+        install install-cmake
+            : boost_cmake_config
+            : <location>$(libdir) <install-source-root>$(cmake-config-output-dir) ;
+
+        install stage-cmake
+            : boost_cmake_config
+            : <location>$(stage-locate)/lib <install-source-root>$(cmake-config-output-dir) ;
+    }
+    else
+    {
+        alias install-cmake ;
+        alias stage-cmake ;
+    }
+
+    $(p).mark-target-as-explicit install-cmake ;
+    $(p).mark-target-as-explicit stage-cmake ;
 
     # Commented out as it does not seem to work. Whoever wrote this originally,
     # left some typos in the code, but when that got corrected and the code got
@@ -459,11 +517,11 @@ rule declare_top_level_targets ( libraries * : headers * )
 
     targets.create-metatarget top-level-target : [ project.current ]
         : install
-        : install-proper install-unversioned
+        : install-proper install-unversioned install-cmake
         ;
     targets.create-metatarget top-level-target : [ project.current ]
         : stage
-        : stage-proper stage-unversioned
+        : stage-proper stage-unversioned stage-cmake
         ;
 
     p = [ project.current ] ;
