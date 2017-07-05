@@ -3,7 +3,7 @@
 #
 # Copyright 2017 Peter Dimov
 #
-# Distributed under the Boost Software License, 1.0
+# Distributed under the Boost Software License 1.0
 #
 
 import print ;
@@ -18,6 +18,7 @@ import feature ;
 import toolset ;
 import regex ;
 import common ;
+import project ;
 
 if "--debug-cmake" in [ modules.peek : ARGV ]
 {
@@ -34,7 +35,7 @@ local rule .info ( messages * )
 
 #
 
-local BOOST_STAGE_LOCATE = [ option.get stagedir : ../stage ] ;
+local BOOST_STAGE_LOCATE = [ option.get stagedir : ../../stage ] ;
 .info BOOST_STAGE_LOCATE is $(BOOST_STAGE_LOCATE) ;
 
 local BOOST_VERSION_TAG = [ modules.peek boostcpp : BOOST_VERSION_TAG ] ;
@@ -375,9 +376,14 @@ local rule exists ( path )
     return [ glob $(path) ] ;
 }
 
+# variant-independent target requirements
+
+local reqs = <variant>release <link>static <runtime-link>shared <runtime-debugging>off <define>NDEBUG <threading>multi ;
+
 # boostdep-cmake
 
-alias boostdep : ../tools/boostdep/build//boostdep : <variant>release <link>static <runtime-link>shared <runtime-debugging>off <define>NDEBUG <threading>multi ;
+alias boostdep : ../../tools/boostdep/build//boostdep : $(reqs) ;
+explicit boostdep ;
 
 feature.feature boostdep-module : : free ;
 toolset.flags boostdep-cmake MODULE : <boostdep-module> ;
@@ -387,9 +393,25 @@ actions boostdep-cmake
     $(2) --cmake $(MODULE) > $(1)
 }
 
-# create stage and install targets
+# output-dir
 
-local library-dirs = [ MATCH (.*)/include : [ glob ../libs/*/include ../libs/numeric/*/include ] ] ;
+local project = [ project.current ] ;
+
+local build-dir = [ path.root [ $(project).get build-dir ] [ path.pwd ] ] ;
+.info build-dir is $(build-dir) ;
+
+path-constant HERE : . ;
+.info HERE is $(HERE) ;
+
+local current-dir = [ path.make $(HERE) ] ;
+.info current-dir is $(current-dir) ;
+
+local output-dir = [ path.relative-to $(current-dir) $(build-dir) ] ;
+.info output-dir is $(output-dir) ;
+
+# create library config targets
+
+local library-dirs = [ MATCH (.*)/include : [ glob ../../libs/*/include ../../libs/numeric/*/include ] ] ;
 
 for dir in $(library-dirs)
 {
@@ -401,7 +423,8 @@ for dir in $(library-dirs)
     local name = [ regex.replace $(rname) "/" "_" ] ;
     .info name is $(name) ;
 
-    local reqs = <variant>release <link>static <runtime-link>shared <runtime-debugging>off <define>NDEBUG <threading>multi ;
+    local lib-prefix = cmake/boost_$(name)-$(BOOST_VERSION) ;
+    .info lib-prefix is $(lib-prefix) ;
 
     # generate -config.cmake
 
@@ -414,11 +437,11 @@ for dir in $(library-dirs)
     {
         .info Library $(name) is not header-only ;
 
-        make boost_$(name)-config.cmake : : @generate-static-config : $(reqs) ;
+        make boost_$(name)-config.cmake : : @generate-static-config : $(reqs) <location>$(output-dir)/$(lib-prefix) ;
         explicit boost_$(name)-config.cmake ;
         config-targets = boost_$(name)-config.cmake ;
 
-        generate boost_$(name)-config-variant.cmake : : <generating-rule>@generate-config-variant <threading>multi ;
+        generate boost_$(name)-config-variant.cmake : : <generating-rule>@generate-config-variant <threading>multi <location>$(output-dir)/$(lib-prefix) ;
         explicit boost_$(name)-config-variant.cmake ;
         config-targets += boost_$(name)-config-variant.cmake ;
     }
@@ -426,55 +449,47 @@ for dir in $(library-dirs)
     {
         .info Library $(name) is header-only ;
 
-        make boost_$(name)-config.cmake : : @generate-header-config : $(reqs) ;
+        make boost_$(name)-config.cmake : : @generate-header-config : $(reqs) <location>$(output-dir)/$(lib-prefix) ;
         explicit boost_$(name)-config.cmake ;
         config-targets = boost_$(name)-config.cmake ;
     }
 
     # generate -config-version.cmake
 
-    make boost_$(name)-config-version.cmake : : @generate-config-version : $(reqs) ;
+    make boost_$(name)-config-version.cmake : : @generate-config-version : $(reqs) <location>$(output-dir)/$(lib-prefix) ;
     explicit boost_$(name)-config-version.cmake ;
     config-targets += boost_$(name)-config-version.cmake ;
 
     # generate -dependencies.cmake
 
-    make boost_$(name)-dependencies.cmake : boostdep : @boostdep-cmake : <boostdep-module>$(rname) $(reqs) ;
+    make boost_$(name)-dependencies.cmake : boostdep : @boostdep-cmake : <boostdep-module>$(rname) $(reqs) <location>$(output-dir)/$(lib-prefix) ;
+    explicit boost_$(name)-dependencies.cmake ;
     config-targets += boost_$(name)-dependencies.cmake ;
 
     .info The config-targets of $(name) are $(config-targets) ;
 
-    # stage
+    # library target
 
-    local stage-location = $(BOOST_STAGE_LOCATE)/lib/cmake/boost_$(name)-$(BOOST_VERSION) ;
-    .info The staging location of $(name) is $(stage-location) ;
-
-    install $(dir)-stage : $(config-targets) : <location>$(stage-location) ;
-    explicit $(dir)-stage ;
-
-    # install
-
-    local install-location = $(libdir)/cmake/boost_$(name)-$(BOOST_VERSION) ;
-    .info The install location of $(name) is $(install-location) ;
-
-    install $(dir)-install : $(config-targets) : <location>$(install-location) ;
-    explicit $(dir)-install ;
+    alias $(dir)-cmake-config : $(config-targets) ;
+    explicit $(dir)-cmake-config ;
 }
 
 # BoostDetectToolset.cmake
 
-install BoostDetectToolset-stage : BoostDetectToolset.cmake : <name>BoostDetectToolset-$(BOOST_VERSION).cmake <location>$(BOOST_STAGE_LOCATE)/lib/cmake ;
-explicit BoostDetectToolset-stage ;
+install BoostDetectToolset-$(BOOST_VERSION).cmake : BoostDetectToolset.cmake : <location>$(output-dir)/cmake <name>BoostDetectToolset-$(BOOST_VERSION).cmake ;
+explicit BoostDetectToolset-$(BOOST_VERSION).cmake ;
 
-install BoostDetectToolset-install : BoostDetectToolset.cmake : <name>BoostDetectToolset-$(BOOST_VERSION).cmake <location>$(libdir)/cmake ;
-explicit BoostDetectToolset-install ;
+# top-level target
+
+alias boost_cmake_config : BoostDetectToolset-$(BOOST_VERSION).cmake $(library-dirs)-cmake-config ;
+explicit boost_cmake_config ;
 
 # stage
 
-alias stage : BoostDetectToolset-stage $(library-dirs)-stage ;
+install stage : boost_cmake_config : <location>$(BOOST_STAGE_LOCATE)/lib <install-source-root>$(output-dir) ;
 explicit stage ;
 
 # install
 
-alias install : BoostDetectToolset-install $(library-dirs)-install ;
+install install : boost_cmake_config : <location>$(libdir) <install-source-root>$(output-dir) ;
 explicit install ;
