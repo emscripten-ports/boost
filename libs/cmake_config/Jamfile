@@ -82,12 +82,13 @@ local libdir = [ option.get libdir : $(prefix)/lib ] ;
 
 # generate-config
 
-local rule generate-config ( target type )
+local rule generate-config ( target type : properties * )
 {
     .info generate-config $(target) :: $(type) ;
 
-    local name = [ MATCH boost_(.*)-config.cmake : $(target) ] ;
+    local ps = [ property-set.create $(properties) ] ;
 
+    local name = [ $(ps).get <name> ] ;
     .info generate-config: name is $(name) ;
 
     local cmake-lib = boost_$(name) ;
@@ -143,12 +144,12 @@ local rule generate-config ( target type )
 
 rule generate-header-config ( target : sources * : properties * )
 {
-    generate-config $(target) INTERFACE ;
+    generate-config $(target) INTERFACE : $(properties) ;
 }
 
 rule generate-static-config ( target : sources * : properties * )
 {
-    generate-config $(target) UNKNOWN ;
+    generate-config $(target) UNKNOWN : $(properties) ;
 }
 
 # generate-config-version
@@ -157,8 +158,9 @@ rule generate-config-version ( target : sources * : properties * )
 {
     .info generate-config-version $(target) ;
 
-    local name = [ MATCH boost_(.*)-config-version.cmake : $(target) ] ;
+    local ps = [ property-set.create $(properties) ] ;
 
+    local name = [ $(ps).get <name> ] ;
     .info generate-config-version: name is $(name) ;
 
     print.output $(target) ;
@@ -297,7 +299,7 @@ rule generate-config-variant- ( target : sources * : properties * )
         ""
         : true ;
 
-    local name = [ MATCH boost_(.*)-config-variant-.*cmake : $(target) ] ;
+    local name = [ $(ps).get <name> ] ;
     .info generate-config-variant-: name is $(name) ;
 
     local ftype = STATIC_LIB ;
@@ -437,11 +439,11 @@ for dir in $(library-dirs)
     {
         .info Library $(name) is not header-only ;
 
-        make boost_$(name)-config.cmake : : @generate-static-config : $(reqs) <location>$(output-dir)/$(lib-prefix) ;
+        make boost_$(name)-config.cmake : : @generate-static-config : $(reqs) <location>$(output-dir)/$(lib-prefix) <name>$(name) ;
         explicit boost_$(name)-config.cmake ;
         config-targets = boost_$(name)-config.cmake ;
 
-        generate boost_$(name)-config-variant.cmake : : <generating-rule>@generate-config-variant <threading>multi <location>$(output-dir)/$(lib-prefix) ;
+        generate boost_$(name)-config-variant.cmake : : <generating-rule>@generate-config-variant <threading>multi <location>$(output-dir)/$(lib-prefix) <name>$(name) ;
         explicit boost_$(name)-config-variant.cmake ;
         config-targets += boost_$(name)-config-variant.cmake ;
     }
@@ -449,20 +451,20 @@ for dir in $(library-dirs)
     {
         .info Library $(name) is header-only ;
 
-        make boost_$(name)-config.cmake : : @generate-header-config : $(reqs) <location>$(output-dir)/$(lib-prefix) ;
+        make boost_$(name)-config.cmake : : @generate-header-config : $(reqs) <location>$(output-dir)/$(lib-prefix) <name>$(name) ;
         explicit boost_$(name)-config.cmake ;
         config-targets = boost_$(name)-config.cmake ;
     }
 
     # generate -config-version.cmake
 
-    make boost_$(name)-config-version.cmake : : @generate-config-version : $(reqs) <location>$(output-dir)/$(lib-prefix) ;
+    make boost_$(name)-config-version.cmake : : @generate-config-version : $(reqs) <location>$(output-dir)/$(lib-prefix) <name>$(name) ;
     explicit boost_$(name)-config-version.cmake ;
     config-targets += boost_$(name)-config-version.cmake ;
 
     # generate -dependencies.cmake
 
-    make boost_$(name)-dependencies.cmake : boostdep : @boostdep-cmake : <boostdep-module>$(rname) $(reqs) <location>$(output-dir)/$(lib-prefix) ;
+    make boost_$(name)-dependencies.cmake : boostdep : @boostdep-cmake : <boostdep-module>$(rname) $(reqs) <location>$(output-dir)/$(lib-prefix) <name>$(name) ;
     explicit boost_$(name)-dependencies.cmake ;
     config-targets += boost_$(name)-dependencies.cmake ;
 
