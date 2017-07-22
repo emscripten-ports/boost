@@ -1,0 +1,140 @@
+#
+# pkg-config generation
+#
+# Copyright 2017 Peter Dimov
+#
+# Distributed under the Boost Software License, Version 1.0
+#
+
+import print ;
+import option ;
+import os ;
+import path ;
+import modules ;
+import property-set ;
+import "class" : new ;
+import feature ;
+import toolset ;
+import regex ;
+import common ;
+import project ;
+
+if "--debug" in [ modules.peek : ARGV ]
+{
+    .info-enabled = 1 ;
+}
+
+local rule .info ( messages * )
+{
+    if $(.info-enabled)
+    {
+        ECHO info: $(messages) ;
+    }
+}
+
+#
+
+local BOOST_ROOT = ../.. ;
+.info BOOST_ROOT is $(BOOST_ROOT) ;
+
+# local BOOST_VERSION = [ modules.peek : BOOST_VERSION ] ;
+.info BOOST_VERSION is $(BOOST_VERSION) ;
+
+local BOOST_STAGE_LOCATE = [ option.get stagedir : $(BOOST_ROOT)/stage ] ;
+.info BOOST_STAGE_LOCATE is $(BOOST_STAGE_LOCATE) ;
+
+# prefix
+
+local default-prefix = "" ;
+
+if [ os.name ] = NT
+{
+    default-prefix = C:/Boost ;
+}
+else
+{
+    default-prefix = /usr/local ;
+}
+
+.info default-prefix is $(default-prefix) ;
+
+local prefix = [ option.get prefix : $(default-prefix) ] ;
+.info prefix is $(prefix) ;
+
+# libdir
+
+local libdir = [ option.get libdir : $(prefix)/lib ] ;
+.info libdir is $(libdir) ;
+
+# exists
+
+local rule exists ( path )
+{
+    return [ glob $(path) ] ;
+}
+
+# variant-independent target requirements
+
+local reqs = <variant>release <link>static <runtime-link>shared <runtime-debugging>off <define>NDEBUG <threading>multi ;
+
+# boostdep-pkgconfig
+
+alias boostdep : $(BOOST_ROOT)/tools/boostdep/build//boostdep : $(reqs) ;
+explicit boostdep ;
+
+feature.feature boostdep-args : : free ;
+toolset.flags boostdep-pkgconfig ARGS : <boostdep-args> ;
+
+actions boostdep-pkgconfig
+{
+    $(2) --pkgconfig $(ARGS) > $(1)
+}
+
+# output-dir
+
+output-dir = $(BOOST_ROOT)/bin.v2 ;
+.info output-dir is $(output-dir) ;
+
+# create library config targets
+
+local library-dirs = [ MATCH (.*)/include : [ glob $(BOOST_ROOT)/libs/*/include $(BOOST_ROOT)/libs/numeric/*/include ] ] ;
+
+for dir in $(library-dirs)
+{
+    .info Processing directory $(dir) ;
+
+    local rname = [ MATCH .*/libs/(.*) : $(dir) ] ;
+    .info rname is $(rname) ;
+
+    local name = [ regex.replace $(rname) "/" "_" ] ;
+    .info name is $(name) ;
+
+    #
+
+    local boostdep-args = "$(rname) $(BOOST_VERSION) prefix=$(prefix) exec_prefix=${prefix} libdir=${exec_prefix}/lib includedir=${prefix}/include" ;
+    .info boostdep-args is $(boostdep-args) ;
+
+    make boost_$(name).pc : boostdep : @boostdep-pkgconfig :
+        <boostdep-args>$(boostdep-args)
+        $(reqs) <location>$(output-dir)/pkgconfig <name>$(name) ;
+
+    explicit boost_$(name).pc ;
+
+    alias $(dir)-pkgconfig : boost_$(name).pc ;
+    explicit $(dir)-pkgconfig ;
+}
+
+# top-level target
+
+alias boost_pkgconfig : $(library-dirs)-pkgconfig ;
+explicit boost_pkgconfig ;
+
+# stage
+
+install stage : boost_pkgconfig : <location>$(BOOST_STAGE_LOCATE)/lib <install-source-root>$(output-dir) ;
+explicit stage ;
+
+# install
+
+install install : boost_pkgconfig : <location>$(libdir) <install-source-root>$(output-dir) ;
+explicit install ;
