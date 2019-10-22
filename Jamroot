@@ -303,9 +303,9 @@ if [ path.exists $(BOOST_ROOT)/libs/wave/tool/build ]
 #
 # - libraries -- list of library targets to install.
 
-rule boost-install ( libraries * )
+rule boost-install ( libraries * : requirements ? )
 {
-    boost-install.boost-install $(libraries) ;
+    boost-install.boost-install $(libraries) : $(requirements) ;
 }
 
 # Creates a library target, adding autolink support and also creates
