@@ -17,9 +17,10 @@ language: cpp
 
 compiler: gcc
 
-# addons:
-#   apt:
-#     packages:
+addons:
+  apt:
+    packages:
+      - xsltproc
 #       - p7zip-full
 #       - docutils-common
 #       - docutils-doc
@@ -27,7 +28,6 @@ compiler: gcc
 #       - docbook
 #       - docbook-xml
 #       - docbook-xsl
-#       - xsltproc
 #       - doxygen
 #       - dvipsk-ja
 #       - texlive
