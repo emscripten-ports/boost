@@ -17,24 +17,24 @@ language: cpp
 
 compiler: gcc
 
-addons:
-  apt:
-    packages:
-      - p7zip-full
-      - docutils-common
-      - docutils-doc
-      - python-docutils
-      - docbook
-      - docbook-xml
-      - docbook-xsl
-      - xsltproc
-      - doxygen
-      - dvipsk-ja
-      - texlive
-      - sshpass
-      - ghostscript
-      - libsaxonhe-java
-  ssh_known_hosts: frs.sourceforge.net
+# addons:
+#   apt:
+#     packages:
+#       - p7zip-full
+#       - docutils-common
+#       - docutils-doc
+#       - python-docutils
+#       - docbook
+#       - docbook-xml
+#       - docbook-xsl
+#       - xsltproc
+#       - doxygen
+#       - dvipsk-ja
+#       - texlive
+#       - sshpass
+#       - ghostscript
+#       - libsaxonhe-java
+#   ssh_known_hosts: frs.sourceforge.net
 
 env:
   matrix:
